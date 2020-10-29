@@ -8,15 +8,15 @@ import sys
 import time
 
 # 停止条件
-MAX_DIG_LAYER_NUM = 12300  # 最大目标层数
+MAX_DIG_LAYER_NUM = 112300  # 最大目标层数
 MIN_CHUTOU_NUM = 3000  # 最小锄头数
 MIN_LINE_TNT_NUM = 2000  # 最小一字型炸药数
 MIN_JGG_TNT_NUM = 1000  # 最小九宫格炸药数
 DIG_TIME = 3000  # 脚本运行时间，单位是秒
-MAX_STEP = 100  # 脚本最大循环执行步数
+MAX_STEP = 300  # 脚本最大循环执行步数
 
 # 接口调用gap时间，减压防封，单位是秒
-GAP_TIME = 2
+GAP_TIME = 1
 
 # 棋盘长度
 GAME_LENGTH = 7
@@ -30,20 +30,19 @@ USE_LINE_TNT_BESIDE_LAND_LIMIT = 11  # 所在层的上下两层的土块数多�
 USE_LINE_TNT_SELF_LAND_LIMIT = 4  # 自身所在行有效土块（不包括被岩石挡住的外边的土）多于此变量
 
 
-ID = "xxx"
-G_TK = "xxx"
+ID = ""
+G_TK = ""
 
 # Cookies
 COOKIES = {
-    "pgv_pvi": "xxx",
-    "pgv_si": "xxx",
-    "pgv_pvid": "xxx",
-    "pgv_info": "ssid=xxx",
+    "pgv_pvi": "",
+    "pgv_pvid": "",
+    "pgv_info": "",
     "ptui_loginuin": ID,
     "uin": "o0" + ID,
-    "skey": "xxx",
-    "RK": "xxx",
-    "ptcz": "xxx"
+    "skey": "",
+    "RK": "",
+    "ptcz": ""
 }
 
 # Other setting
@@ -68,6 +67,7 @@ class GiftType(object):
     gold_coin = 44  # 金币
     exp = 45  # 经验
     gold_powder = 47  # 金粉
+    grade = 48  # 积分
     magic = 55  # 魔力值
     chutou = 65  # 锄头
     line_tnt = 66  # 一字型炸药
@@ -87,6 +87,8 @@ class GiftType(object):
             return "金粉"
         elif item == GiftType.magic:
             return "魔力"
+        elif item == GiftType.grade:
+            return "积分"
         elif item == GiftType.chutou:
             return "锄头"
         elif item == GiftType.line_tnt:
@@ -105,7 +107,7 @@ class GiftType(object):
 
 
 # 需要拾取的物品
-NEED_GIFT = [GiftType.magic, GiftType.chutou, GiftType.line_tnt, GiftType.jgg_tnt, GiftType.super_tnt, GiftType.gift,
+NEED_GIFT = [GiftType.magic, GiftType.grade, GiftType.chutou, GiftType.line_tnt, GiftType.jgg_tnt, GiftType.super_tnt, GiftType.gift,
              GiftType.bottle]
 
 
@@ -332,7 +334,7 @@ class CardUtil(object):
                 if col.get("gift_type"):  # 该字段有值且不为0，说明有物品
                     # 如果是空地且有物品，直接拾取
                     if col["type"] == LandType.empty and col["gift_type"]:
-                        return True, col["type"], int(line), int(col["j"]), int(col["gift_type"]), int(col["gift_id"])
+                        return True, col["type"], int(line), int(col["j"]), int(col["gift_type"]), int(col["gift_id"]), int(col["gift_num"])
                     # 不是空地时，则判断物品是否需要，如果需要再拾取（拾取前需要挖掘）
                     if col["gift_type"] in NEED_GIFT and col["gift_id"] not in FILTER_GIFT:
                         # 如果就一个锄头，则不要
@@ -340,9 +342,9 @@ class CardUtil(object):
                             continue
                         # 检查这块是否可以作为拾取对象
                         if cls.do_check_again(int(line), int(col["j"])):
-                            return True, col["type"], int(line), int(col["j"]), int(col["gift_type"]), int(col["gift_id"])
+                            return True, col["type"], int(line), int(col["j"]), int(col["gift_type"]), int(col["gift_id"]), int(col["gift_num"])
         # 没有可以拾取的物品
-        return False, 0, 0, 0, 0, 0
+        return False, 0, 0, 0, 0, 0, 0
 
     @classmethod
     def next_dig(cls, line, col):
@@ -450,9 +452,9 @@ class CardUtil(object):
             cls.cnt += 1
             logging.info("步数: %s" % str(cls.cnt))
             # 检查是否可以拾取
-            is_pick, land_type, line, col, gift_type, gift_id = cls.is_pick()
+            is_pick, land_type, line, col, gift_type, gift_id, num = cls.is_pick()
             if is_pick:
-                logging.info("行%s列%s有%s可拾取，土地类型为%s" % (str(line), str(col), GiftType.to_string(gift_type), LandType.to_string(land_type)))
+                logging.info("行%s列%s有%s可拾取，数量为%s, 土地类型为%s" % (str(line), str(col), GiftType.to_string(gift_type), num, LandType.to_string(land_type)))
                 # 空地则可直接拾取
                 if land_type == LandType.empty:
                     # 如果是超级炸药，则调用挖地接口
