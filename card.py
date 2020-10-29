@@ -29,7 +29,6 @@ USE_JGG_TNT_GIFT_LIMIT = 3  # 至少包含3个礼物
 USE_LINE_TNT_BESIDE_LAND_LIMIT = 11  # 所在层的上下两层的土块数多于此变量 and
 USE_LINE_TNT_SELF_LAND_LIMIT = 4  # 自身所在行有效土块（不包括被岩石挡住的外边的土）多于此变量
 
-
 ID = ""
 G_TK = ""
 
@@ -38,6 +37,7 @@ COOKIES = {
     "pgv_pvi": "",
     "pgv_pvid": "",
     "pgv_info": "",
+    "_qpsvr_localtk": "",
     "ptui_loginuin": ID,
     "uin": "o0" + ID,
     "skey": "",
