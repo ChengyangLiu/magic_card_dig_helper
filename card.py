@@ -8,12 +8,12 @@ import sys
 import time
 
 # 停止条件
-MAX_DIG_LAYER_NUM = 112300  # 最大目标层数
+MAX_DIG_LAYER_NUM = 999999  # 最大目标层数
 MIN_CHUTOU_NUM = 3000  # 最小锄头数
 MIN_LINE_TNT_NUM = 2000  # 最小一字型炸药数
 MIN_JGG_TNT_NUM = 1000  # 最小九宫格炸药数
 DIG_TIME = 3000  # 脚本运行时间，单位是秒
-MAX_STEP = 300  # 脚本最大循环执行步数
+MAX_STEP = 500  # 脚本最大循环执行步数
 
 # 接口调用gap时间，减压防封，单位是秒
 GAP_TIME = 1
@@ -23,11 +23,11 @@ GAME_LENGTH = 7
 
 # 工具使用
 # 使用九宫格tnt的条件：
-USE_JGG_TNT_LAND_LIMIT = 7  # 至少有7块包围土 or
+USE_JGG_TNT_LAND_LIMIT = 6  # 至少有7块包围土 or
 USE_JGG_TNT_GIFT_LIMIT = 3  # 至少包含3个礼物
 # 使用一字型tnt的条件：
-USE_LINE_TNT_BESIDE_LAND_LIMIT = 11  # 所在层的上下两层的土块数多于此变量 and
-USE_LINE_TNT_SELF_LAND_LIMIT = 4  # 自身所在行有效土块（不包括被岩石挡住的外边的土）多于此变量
+USE_LINE_TNT_BESIDE_LAND_LIMIT = 4  # 所在层的上下两层的土块数多于此变量 and
+USE_LINE_TNT_SELF_LAND_LIMIT = 3  # 自身所在行有效土块（不包括被岩石挡住的外边的土）多于此变量
 
 ID = ""
 G_TK = ""
@@ -37,7 +37,6 @@ COOKIES = {
     "pgv_pvi": "",
     "pgv_pvid": "",
     "pgv_info": "",
-    "_qpsvr_localtk": "",
     "ptui_loginuin": ID,
     "uin": "o0" + ID,
     "skey": "",
@@ -106,7 +105,7 @@ class GiftType(object):
         return "未知"
 
 
-# 需要拾取的物品
+# 需要挖掘拾取的物品
 NEED_GIFT = [GiftType.magic, GiftType.grade, GiftType.chutou, GiftType.line_tnt, GiftType.jgg_tnt, GiftType.super_tnt, GiftType.gift,
              GiftType.bottle]
 
@@ -118,6 +117,20 @@ class GiftId(object):
     red_stone = 5  # 红晶石
     wood_block = 8  # 木板
     iron_block = 9  # 铁块
+
+    @staticmethod
+    def to_string(item):
+        if item == GiftId.blue_stone:
+            return "蓝晶石"
+        elif item == GiftId.green_stone:
+            return "绿晶石"
+        elif item == GiftId.red_stone:
+            return "红晶石"
+        elif item == GiftId.red_stone:
+            return "木板"
+        elif item == GiftId.red_stone:
+            return "铁块"
+        return "未知"
 
 
 # 占用背包物品中需要过滤掉的
@@ -157,6 +170,17 @@ class DigType(object):
     line_tnt = 2  # 使用一字型炸药
     jgg_tnt = 3  # 使用九宫格炸药
     super_tnt = 4 # 使用超级炸药
+
+    def to_string(item):
+        if item == DigType.chutou:
+            return "锄头"
+        elif item == DigType.line_tnt:
+            return "一字型炸药"
+        elif item == DigType.jgg_tnt:
+            return "九宫格炸药"
+        elif item == DigType.super_tnt:
+            return "超级炸药"
+        return "未知"
 
 
 class GameInfo(object):
@@ -200,6 +224,8 @@ class CardUtil(object):
         cls.game_info = GameInfo()
         cls.start_time = time.time()
         cls.cnt = 0
+        cls.used_tool = {}
+        cls.got_gift = {}
 
     @classmethod
     def set_game_info(cls, chutou, line_tnt, jgg_tnt, page_index, dig_index, dig_info):
@@ -260,6 +286,10 @@ class CardUtil(object):
                 cls.set_game_info(text["chutou"], text["line_tnt"], text["jgg_tnt"], text["page_index"],
                                   text["dig_index"], text["dig_info"])
                 logging.info("挖地成功！")
+                if dig_type not in cls.used_tool:
+                    cls.used_tool[dig_type] = 1
+                else:
+                    cls.used_tool[dig_type] += 1
             else:
                 logging.error("挖地失败")
                 raise
@@ -310,6 +340,27 @@ class CardUtil(object):
         return False
 
     @classmethod
+    def conclusion(cls):
+        logging.info("=================================")
+        logging.info("游戏运行情况:")
+        logging.info("运行步数: %s" % str(cls.cnt))
+        logging.info("运行时间: %s" % str(time.time() - cls.start_time))
+        logging.info("抵达层数: %s" % str(cls.game_info.dig_index))
+        logging.info("剩余锄头数: %s" % str(cls.game_info.chutou))
+        logging.info("剩余一字型炸药数: %s" % str(cls.game_info.line_tnt))
+        logging.info("剩余九宫格型炸药数: %s" % str(cls.game_info.jgg_tnt))
+        logging.info("---------------------------------")
+        logging.info("资源消耗情况:")
+        for key in cls.used_tool:
+            logging.info("%s: %s" % (DigType.to_string(key), str(cls.used_tool[key])))
+        logging.info("---------------------------------")
+        logging.info("物品获得情况:")
+        for key in cls.got_gift:
+            gift_name = GiftType.to_string(key) if key != 70 else GiftId.to_string(key)
+            logging.info("%s: %s" % (gift_name, str(cls.got_gift[key])))
+        logging.info("=================================")
+
+    @classmethod
     def do_check_again(cls, line_index, col_index):
         # TODO
         """
@@ -354,9 +405,12 @@ class CardUtil(object):
         dig_info = cls.game_info.dig_info
         min_layer = cls.game_info.page_index + 1
         max_layer = cls.game_info.dig_index
+        # logging.info("%s" % str(line))
+        # logging.info("%s" % str(min_layer))
+        # logging.info("%s" % str(max_layer))
 
         # 判断是否用九宫格炸药
-        if min_layer + 1 < line < max_layer and 0 < col < GAME_LENGTH:
+        if min_layer + 1 < line <= max_layer and 0 < col < GAME_LENGTH - 1:
             check_list = [dig_info[str(line - 1)], dig_info[str(line)], dig_info[str(line + 1)]]
             check_col = [col - 1, col, col + 1]
             not_empty_land = 0
@@ -368,6 +422,8 @@ class CardUtil(object):
                     if line_item[col_item]["type"] != LandType.empty and line_item[col_item]["type"] != LandType.forbidden:
                         not_empty_land += 1
             # 周围9块土的数量超过limit或者包含礼物超过limit，则使用九宫格炸药
+            # logging.info(str(not_empty_land))
+            # logging.info(str(has_gift))
             if not_empty_land >= USE_JGG_TNT_LAND_LIMIT or has_gift >= USE_JGG_TNT_GIFT_LIMIT:
                 logging.info("【使用九宫格炸药】土块%s, 礼物%s, 行%s，列%s" %(str(not_empty_land), str(has_gift), str(line), str(col)))
                 cls.dig(line, col, DigType.jgg_tnt)
@@ -448,13 +504,16 @@ class CardUtil(object):
             # 检查停止条件
             if cls.is_stop():
                 logging.info("停止条件满足，挖地停止！")
+                cls.conclusion()
                 break
             cls.cnt += 1
             logging.info("步数: %s" % str(cls.cnt))
             # 检查是否可以拾取
-            is_pick, land_type, line, col, gift_type, gift_id, num = cls.is_pick()
+            is_pick, land_type, line, col, gift_type, gift_id, gift_num = cls.is_pick()
             if is_pick:
-                logging.info("行%s列%s有%s可拾取，数量为%s, 土地类型为%s" % (str(line), str(col), GiftType.to_string(gift_type), num, LandType.to_string(land_type)))
+                gift_info = GiftType.to_string(gift_type) if gift_type != 70 else GiftId.to_string(gift_id)
+                gift_index = gift_type if gift_type != 70 else gift_id
+                logging.info("行%s列%s有%s可拾取，数量为%s, 土地类型为%s" % (str(line), str(col), gift_info, gift_num, LandType.to_string(land_type)))
                 # 空地则可直接拾取
                 if land_type == LandType.empty:
                     # 如果是超级炸药，则调用挖地接口
@@ -464,6 +523,10 @@ class CardUtil(object):
                     else:
                         logging.info("拾取中……")
                         cls.pick(line, col)
+                        if gift_index not in cls.got_gift:
+                            cls.got_gift[gift_index] = gift_num
+                        else:
+                            cls.got_gift[gift_index] += gift_num
                 # 非空地要先挖
                 else:
                     logging.info("挖掘中……")
